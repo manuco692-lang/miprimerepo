@@ -1,0 +1,27 @@
+[build]
+  publish = "."
+  functions = "netlify/functions"
+  edge_functions = "netlify/edge-functions"
+
+# La página principal se revisa en cada visita, pero si no cambió el navegador usa la copia guardada (no se vuelve a descargar).
+[[headers]]
+  for = "/"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# Las imágenes separadas tienen nombre único: se guardan por un año.
+[[headers]]
+  for = "/assets/emb/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Audios, fondos y demás recursos: una semana.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"

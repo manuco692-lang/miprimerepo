@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Panel de Emma — Tarot by Emmaa</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,600&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--g0:#0A3323;--musgo:#839958;--beige:#F7F4D5;--rosa:#D3968C;--mid:#105666;--gold:#E9C46A}
+  *{box-sizing:border-box}
+  body{background:radial-gradient(90% 60% at 50% 0%,#105666 0%,#0A3323 55%,#05140d 100%) fixed;color:var(--beige);font-family:Inter,system-ui,sans-serif;margin:0;padding:34px 16px 60px;min-height:100vh}
+  h1{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;color:var(--gold);font-size:34px;text-align:center;margin:0 0 4px}
+  p.sub{text-align:center;color:rgba(247,244,213,.7);font-size:13.5px;margin:0 0 22px}
+  h2{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--rosa);max-width:760px;margin:26px auto 10px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;max-width:760px;margin:0 auto}
+  .box{background:rgba(5,20,13,.55);border:1px solid rgba(233,196,106,.25);border-radius:18px;padding:16px;text-align:center}
+  .box.big{border-color:rgba(233,196,106,.55)}
+  .num{font-family:'Cormorant Garamond',Georgia,serif;font-size:44px;color:var(--gold);line-height:1.05}
+  .lab{font-size:12.5px;color:rgba(247,244,213,.75);margin-top:4px}
+  .row{display:flex;gap:10px;justify-content:center;align-items:center;margin:14px 0;flex-wrap:wrap}
+  input{background:rgba(5,20,13,.6);border:1px solid var(--musgo);color:var(--beige);border-radius:10px;padding:9px 12px;font-size:15px}
+  button{background:var(--gold);border:none;color:#1b1612;padding:10px 20px;border-radius:999px;font-weight:700;cursor:pointer}
+  .card{max-width:760px;margin:0 auto;background:rgba(5,20,13,.55);border:1px solid rgba(233,196,106,.25);border-radius:18px;padding:16px 18px;font-size:14px;line-height:1.55}
+  .card code{background:rgba(233,196,106,.15);padding:2px 7px;border-radius:6px;color:var(--gold)}
+  .card ol{margin:6px 0 0;padding-left:20px}
+  .ok{color:#9fe0b0;font-size:13px;text-align:center}
+</style>
+</head>
+<body>
+  <h1>Panel de Emma</h1>
+  <p class="sub">El conteo real de tu app. Se actualiza solo cada 30 segundos.</p>
+  <p class="ok" id="own"></p>
+
+  <h2>Desde el comienzo</h2>
+  <div class="grid">
+    <div class="box big"><div class="num" id="personas-total">—</div><div class="lab">personas distintas que entraron</div></div>
+    <div class="box big"><div class="num" id="registros-total">—</div><div class="lab">perfiles creados (se registraron)</div></div>
+    <div class="box"><div class="num" id="visitas-total">—</div><div class="lab">visitas</div></div>
+    <div class="box"><div class="num" id="premium-total">—</div><div class="lab">planes activados</div></div>
+  </div>
+
+  <h2>Un día</h2>
+  <div class="row"><input type="date" id="d"><button onclick="dia()">Ver ese día</button></div>
+  <div class="grid">
+    <div class="box"><div class="num" id="personas-dia">—</div><div class="lab">personas nuevas</div></div>
+    <div class="box"><div class="num" id="activos-dia">—</div><div class="lab">personas que usaron la app</div></div>
+    <div class="box"><div class="num" id="registros-dia">—</div><div class="lab">perfiles creados</div></div>
+    <div class="box"><div class="num" id="visitas-dia">—</div><div class="lab">visitas</div></div>
+    <div class="box"><div class="num" id="premium-dia">—</div><div class="lab">planes activados</div></div>
+  </div>
+
+  <h2>Avisos en tu celular</h2>
+  <div class="card">
+    Cada vez que alguien nuevo entra, vuelve (una vez por día), crea su perfil o activa un plan, te llega un aviso. Los avisos son anónimos: no incluyen el nombre de la persona.
+    <ol>
+      <li>Instalá la app gratuita <b>ntfy</b> (Play Store o App Store).</li>
+      <li>Tocá <b>+</b> y suscribite al canal <code>tarotbyemma-vwoxz3lz2h</code> (no lo compartas: es tu canal privado).</li>
+      <li>Listo: los avisos te llegan como notificación.</li>
+    </ol>
+  </div>
+  <p class="sub" style="margin-top:16px">Tus propias visitas desde este celular no se cuentan.</p>
+
+  <script>
+    try{ localStorage.setItem('tbe_owner', '1'); document.getElementById('own').textContent = '✓ Este dispositivo quedó marcado como tuyo: tus visitas no suman al conteo.'; }catch(e){}
+    var API = 'https://abacus.jasoncameron.dev/get/tarotbyemmaa/';
+    function put(id, key){ var el = document.getElementById(id); if(el.textContent === '—') el.textContent = '…';
+      fetch(API + key).then(function(r){ return r.ok ? r.json() : {value:0}; }).then(function(d){ el.textContent = (d && typeof d.value === 'number') ? d.value.toLocaleString('es-AR') : '0'; }).catch(function(){ el.textContent = '0'; }); }
+    function hoy(){ var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+    function total(){ ['personas','registros','visitas','premium'].forEach(function(k){ put(k + '-total', k + '-total'); }); }
+    function dia(){ var v = document.getElementById('d').value || hoy(); ['personas','activos','registros','visitas','premium'].forEach(function(k){ put(k + '-dia', k + '-' + v); }); }
+    document.getElementById('d').value = hoy(); total(); dia();
+    setInterval(function(){ total(); dia(); }, 30000);
+  </script>
+</body>
+</html>
