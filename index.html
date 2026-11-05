@@ -4510,6 +4510,9 @@ html.ce-on{background:#040818 !important}
 .gu-in textarea{min-height:44px!important;height:44px;line-height:1.35}
 .gu-carta,.gu-carta>*{border-radius:8px!important;height:auto!important;max-height:none!important;aspect-ratio:auto!important}
 .gu-carta img{object-fit:contain!important;width:100%!important;height:auto!important}
+.gu-cartas{display:flex;gap:6px;justify-content:center;margin-bottom:8px}
+.gu-cartas .gu-carta{width:64px;margin:0}
+.gu-cta{display:block;margin-top:10px;text-align:center;border-radius:999px;padding:10px 14px;background:#25D366;color:#0b2b17;font:700 13.5px Inter,sans-serif;text-decoration:none}
 </style>
 </head>
 <body>
@@ -11123,6 +11126,7 @@ return {
   var STEMS = {inund:1, persegu:1, desnud:1, embaraz:1, 'recien nacid':1, oscur:1, enamorad:1, lastimad:1, paralizad:1, congelad:1, desconocid:1, perdid:1, derrumb:1, incendi:1, desbord:1, apurad:1, exnovi:1, 'mi exnovi':1, amamant:1, muert:1, desorientad:1};
   var RX = {}; SU_SYM.forEach(function(s){ RX[s.id] = new RegExp('(?:^|[^a-z])(' + s.k.split('|').map(function(t){ return t.replace(/ /g, '\\s+') + (STEMS[t] ? '[a-z]*' : '(?:s|es)?(?![a-z])'); }).join('|') + ')'); });
   var BYID = {}; SU_SYM.forEach(function(s){ BYID[s.id] = s; });
+  try{ window.TBE_SU = {detect:function(t){ return detect(t); }, byId:BYID}; }catch(e){}
   function detect(text){ var n = ' ' + norm(text) + ' ', out = []; SU_SYM.forEach(function(s){ var m = RX[s.id].exec(n); if(m) out.push({id:s.id, i:m.index}); }); out.sort(function(a, b){ return a.i - b.i; }); return out.map(function(x){ return x.id; }); }
   var LUNA_IC = ['🌑','🌒','🌓','🌔','🌕','🌖','🌗','🌘'], LUNA_N = ['Luna nueva','Luna creciente','Cuarto creciente','Gibosa creciente','Luna llena','Gibosa menguante','Cuarto menguante','Luna menguante'];
   function moonIdx(ts){ var d = ((ts || Date.now()) - Date.UTC(2000,0,6,18,14))/864e5; var p = ((d % 29.530588) + 29.530588) % 29.530588; return Math.floor(p/29.530588*8 + .5) % 8; }
@@ -22641,7 +22645,7 @@ show(idx);
     var EVN = {N:'Luna Nueva', C:'Cuarto Creciente', L:'Luna Llena', M:'Cuarto Menguante'};
     var DIAS = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
     var MES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
-    var IDX = {}; CAL.d.forEach(function(d, i){ IDX[d[0]] = i; });
+    try{ window.TBE_CAL = CAL; }catch(e){} var IDX = {}; CAL.d.forEach(function(d, i){ IDX[d[0]] = i; });
     var KEYS = Object.keys(CAL.m).sort();
     var root = document.getElementById('calRoot'); if(!root) return;
     function esc(t){ return String(t).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
@@ -23575,31 +23579,170 @@ function reqText(a){var r=a.req;if(r.t==='start')return 'Ya es tuya';if(r.t==='l
   function saveH(id, h){ h.msgs = h.msgs.slice(-60); jset('tbe_guia_' + id, h); }
   function perfilGlobal(){ return jget('tbe_guia_perfil', null); }
 
-  /* ---------- conexión con el chat ---------- */
-  var server = null;
-  function serverOK(){ if(server !== null) return Promise.resolve(server);
-    return fetch('/api/guia', {method:'GET'}).then(function(r){ return r.ok ? r.json() : {ok:false}; }).then(function(d){ server = !!(d && d.ok); return server; }).catch(function(){ server = false; return false; }); }
-  function viaApp(g, h){ if(!window.tbeAI) return Promise.reject(new Error('sin ia'));
-    return window.tbeAI.ready.then(function(ok){ if(!ok) throw new Error('sin ia');
-      var p = h.perfil || {}, conv = h.msgs.map(function(m){ return (m.role === 'user' ? (p.nombre || 'Persona') : g.n) + ': ' + m.content; }).join('\n\n');
-      var prompt = 'Sos ' + g.n + ', "' + g.t + '", guía de tarot de la app Tarot by Emma. Personalidad: ' + g.pers + ' Especialidades: ' + g.temas.join(', ') + '. Hablás en español rioplatense con voseo y lenguaje neutro, en respuestas de chat breves (60 a 180 palabras), cálidas y concretas; no usás las palabras empoderar ni sanar; no sos psicóloga ni médica ni predecís el futuro como algo seguro; ante riesgo para la persona priorizás su seguridad y la derivás a ayuda (en Argentina 135 o (011) 5275-1135; emergencias 911). Persona: ' + (p.nombre || '') + ', nacida el ' + (p.fecha || '') + ', ' + (p.signo || '') + ', número de vida ' + (p.vida || '') + '.\n\nConversación:\n' + conv + '\n\nRespondé solo el próximo mensaje de ' + g.n + ', sin poner tu nombre adelante.';
-      return window.tbeAI.run(prompt, {modelTier:'default'}).then(function(r){ return {text:(r && r.text || '').replace(new RegExp('^' + g.n + ':\\s*'), '')}; }); }); }
-  function pedir(g, h){ var p = pase();
-    return serverOK().then(function(ok){
-      if(!ok) return viaApp(g, h).catch(function(){ return {text:'', off:true}; });
-      return fetch('/api/guia', {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({code:p && p.code, guia:g.id, perfil:h.perfil, messages:h.msgs.map(function(m){ return {role:m.role, content:m.content}; })})})
-        .then(function(r){ return r.json().then(function(d){ d.status = r.status; return d; }); }); }); }
+  /* ===== v49 Motor propio de las guías: funciona sin servidor, con el conocimiento de la app ===== */
+  var M = (function(){
+    function nrm(t){ return String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9ñ\s]/g, ' ').replace(/\s+/g, ' ').trim(); }
+    function pick(a){ return a[Math.floor(Math.random() * a.length)]; }
+    function has(t, list){ for(var i = 0; i < list.length; i++){ if(new RegExp('(^|\\s)' + list[i]).test(t)) return true; } return false; }
+    function strip(h){ var d = document.createElement('div'); d.innerHTML = h || ''; return (d.textContent || '').replace(/\s+/g, ' ').trim(); }
+    function frases(t, n){ var p = strip(t).match(/[^.!?]+[.!?]+/g) || [strip(t)]; return p.slice(0, n).join(' ').trim(); }
+    function cardName(c){ return String(c.title).replace(/^[0-9ivxl]+\.\s*/i, ''); }
+    function hoyKey(){ var d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+
+    /* ---------- signos y números ---------- */
+    var SIGNO = {
+      'Aries':{el:'Fuego', t:'coraje, iniciativa y ganas de empezar'}, 'Tauro':{el:'Tierra', t:'constancia, sensibilidad y amor por lo concreto'},
+      'Géminis':{el:'Aire', t:'curiosidad, palabra y mente ágil'}, 'Cáncer':{el:'Agua', t:'ternura, memoria y cuidado'},
+      'Leo':{el:'Fuego', t:'brillo, generosidad y corazón grande'}, 'Virgo':{el:'Tierra', t:'detalle, servicio y búsqueda de orden'},
+      'Libra':{el:'Aire', t:'armonía, belleza y sentido de justicia'}, 'Escorpio':{el:'Agua', t:'intensidad, profundidad y poder de transformación'},
+      'Sagitario':{el:'Fuego', t:'optimismo, búsqueda de sentido y espíritu libre'}, 'Capricornio':{el:'Tierra', t:'disciplina, ambición y paciencia'},
+      'Acuario':{el:'Aire', t:'originalidad, libertad y mirada de futuro'}, 'Piscis':{el:'Agua', t:'intuición, compasión e imaginación'}
+    };
+    var COMPAT = {'Fuego-Fuego':'dos fuegos juntos: mucha pasión y energía, con el desafío de no competir', 'Fuego-Aire':'el aire aviva el fuego: se estimulan, se divierten y se animan mutuamente', 'Fuego-Tierra':'el fuego trae impulso y la tierra trae estabilidad: se complementan si respetan sus ritmos', 'Fuego-Agua':'fuego y agua: atracción intensa, con el desafío de no apagarse ni evaporarse',
+      'Tierra-Tierra':'dos tierras: construyen juntos algo sólido; el desafío es no caer en la rutina', 'Tierra-Aire':'la tierra da forma a las ideas del aire, y el aire le trae aire fresco a la tierra: piden paciencia', 'Tierra-Agua':'agua y tierra se nutren: una de las combinaciones más fértiles y tiernas',
+      'Aire-Aire':'dos mentes que vuelan: charla infinita y libertad; el desafío es bajar a tierra', 'Aire-Agua':'mente y emoción: se enriquecen mucho si aprenden a hablar el idioma del otro', 'Agua-Agua':'dos aguas: comprensión profunda y empatía; el desafío es no ahogarse en emociones'};
+    function compat(a, b){ var x = SIGNO[a] && SIGNO[a].el, y = SIGNO[b] && SIGNO[b].el; if(!x || !y) return ''; return COMPAT[x + '-' + y] || COMPAT[y + '-' + x] || ''; }
+    var NUM = {1:'el número del inicio y del liderazgo', 2:'el número de la unión, la sensibilidad y los acuerdos', 3:'el número de la creatividad y la expresión', 4:'el número de la estructura y la constancia', 5:'el número del cambio y la libertad', 6:'el número del amor, el cuidado y la responsabilidad', 7:'el número de la búsqueda interior y la sabiduría', 8:'el número del poder personal y la abundancia', 9:'el número del cierre de ciclos y la compasión', 11:'un número maestro de intuición y de inspiración', 22:'un número maestro de quien construye en grande', 33:'un número maestro de servicio y amor'};
+    function signoEn(t){ var n = nrm(t); for(var s in SIGNO){ if(n.indexOf(nrm(s)) >= 0) return s; } return null; }
+
+    /* ---------- intenciones ---------- */
+    var I = {
+      crisis:['suicid','matarme','quitarme la vida','no quiero vivir','no quiero seguir viviendo','me quiero morir','autolesion','lastimarme','cortarme','me pega','me golpea','me maltrata','abuso','me violo','violencia'],
+      ia:['sos una ia','sos un robot','sos real','sos humano','sos humana','sos una persona','quien sos','que sos','sos emma'],
+      gracias:['gracias','muchas gracias','genial','buenisimo','me encanto','te amo'],
+      chau:['chau','adios','nos vemos','hasta luego','me voy','buenas noches'],
+      hola:['hola','buenas','buen dia','buenas tardes','hey','como estas','que tal','como andas','todo bien'],
+      chiste:['chiste','contame algo gracioso','jaja','jeje','aburrid','aburro'],
+      consulta:['precio','cuanto sale','cuanto cuesta','consulta con emma','lectura con emma','turno','agendar','reservar','hablar con emma','lectura personal','lectura personalizada'],
+      ayuda:['como funciona','que podes hacer','que sabes hacer','ayuda','como te uso','que te puedo preguntar'],
+      cuando:['en que fecha','que dia','cuanto tiempo','cuantos meses','va a volver','vuelve','me va a llamar','me va a escribir','va a pasar','fecha exacta'],
+      amor:['amor','pareja','novio','novia','mi ex','crush','me quiere','enamor','relacion','casar','casamiento','infiel','cita','gusta','soltera','soltero','vinculo'],
+      trabajo:['trabajo','laburo','empleo','jefe','jefa','entrevista','carrera','negocio','emprend','proyecto','estudio','examen','facultad','cliente','ascenso','renunciar'],
+      dinero:['plata','dinero','deuda','ahorro','abundancia','prosperidad','sueldo','pagar','economia','ganar'],
+      familia:['mama','mamá','papa','padre','madre','hijo','hija','familia','hermano','hermana','abuela','abuelo','suegr'],
+      bienestar:['salud','cuerpo','dormir','insomnio','ansiedad','estres','cansad','agotad','energia baja','bajon','triste','tristeza','angustia','miedo','soledad'],
+      duelo:['murio','fallecio','perdi a','duelo','extrano a','se fue para siempre','perdida de'],
+      decision:['debo','deberia','conviene','elegir','decidir','decision','si o no','que hago','me animo','vale la pena','o no'],
+      suenos:['sone','sueno','soñe','sueño','pesadilla','soñando'],
+      proposito:['proposito','mision','espiritual','alma','sentido','vocacion','meditar','meditacion','camino de vida','para que estoy'],
+      hoy:['hoy','energia del dia','carta del dia','que me depara','esta semana','este mes','manana'],
+      astro:['signo','carta natal','ascendente','luna en','retrogrado','horoscopo','planeta','compatib','zodiaco'],
+      numero:['numero de vida','numerologia','mi numero','numeros']
+    };
+    function intencion(txt){ var t = ' ' + nrm(txt) + ' ';
+      if(/^ ?saque la carta/.test(t)) return 'carta';
+      if(/^ ?¿? ?(para )?cuando /.test(t) || /(cuando (va|vuelve|me va|voy a|llega|se va|me llama|me escribe))/.test(t)) return has(t, I.crisis.map(nrm)) ? 'crisis' : 'cuando';
+      var orden = ['crisis','consulta','ayuda','ia','suenos','duelo','cuando','amor','trabajo','dinero','familia','bienestar','decision','proposito','astro','numero','hoy','chiste','gracias','chau','hola'];
+      for(var i = 0; i < orden.length; i++){ if(has(t, I[orden[i]].map(function(k){ return nrm(k); }))) return orden[i]; }
+      return 'general'; }
+    var TEMA = {amor:'el amor y tus vínculos', trabajo:'tu trabajo y tus proyectos', dinero:'tu dinero y tu abundancia', familia:'tu familia', bienestar:'cómo te estás sintiendo', duelo:'esta despedida', decision:'tu decisión', proposito:'tu propósito', hoy:'tu energía de hoy', general:'tu pregunta', suenos:'tu sueño', astro:'tu cielo', numero:'tus números', cuando:'tu pregunta'};
+
+    /* ---------- consejos por tema ---------- */
+    var CONSEJO = {
+      amor:['En el amor, lo que más te ordena hoy es mirar cómo te tratás a vos dentro de ese vínculo: desde ahí elegís mejor.','Más que adivinar lo que siente la otra persona, preguntate qué necesitás vos para sentirte en paz en este vínculo.','Un vínculo sano se nota en el cuerpo: calma, ganas, risa. Fijate qué te dice el tuyo cuando pensás en esta persona.'],
+      trabajo:['En lo laboral, un paso concreto esta semana vale más que mil planes: elegí uno y hacelo.','Tu valor no depende de una sola respuesta, una entrevista o un jefe: anotá tres logros tuyos y leelos antes de decidir.','Ordená tu energía: una tarea importante por la mañana, antes de que el día te lleve puesto.'],
+      dinero:['Con la plata, la claridad es poder: anotá cuánto entra, cuánto sale y en qué se te va sin darte cuenta.','La abundancia empieza por cuidar lo que ya tenés: un pequeño ahorro sostenido dice mucho de tu confianza.','Antes de una decisión de dinero, dormila una noche: la urgencia suele ser mala consejera.'],
+      familia:['Con la familia, a veces el gesto más grande es decir lo que sentís sin reproche: “esto me dolió, esto necesito”.','No hace falta cargar con todo: lo que no es tuyo, podés devolverlo con amor.','Las raíces se honran también poniendo límites: cuidarte no te aleja de los tuyos.'],
+      bienestar:['Tu cuerpo te está hablando: descanso, agua, aire libre y una conversación con alguien de confianza son la base. Y si el malestar sigue, consultalo con un profesional de la salud.','Probá algo simple hoy: respirá contando cuatro al inhalar y seis al exhalar, cinco veces. Bajar el ritmo también es avanzar.','Lo que sentís es válido. Escribilo sin juzgarlo: ponerle palabras ya le quita peso.'],
+      duelo:['El duelo no tiene apuro ni manual. Lo que amaste sigue en vos, en lo que aprendiste y en cómo mirás la vida.','Podés escribirle una carta a quien se fue, contándole lo que te gustaría decirle hoy. A muchas personas eso les da paz.','Rodeate de quienes te sostienen: el duelo pesa menos cuando se comparte.'],
+      decision:['Imaginá que ya elegiste: ¿qué sentís en el cuerpo, alivio o peso? Esa sensación es tu respuesta más honesta.','Escribí qué ganás y qué perdés con cada opción, y después preguntate cuál elegirías si no tuvieras miedo.','No toda decisión es para siempre: elegí la que te deje aprender, aunque no sea perfecta.'],
+      proposito:['El propósito no se encuentra de golpe: se va revelando en lo que te hace perder la noción del tiempo.','Mirá qué te piden siempre los demás y qué harías aunque nadie te pagara: ahí hay pistas de tu camino.','Hoy, regalate diez minutos de silencio. Las respuestas grandes llegan cuando bajás el ruido.'],
+      hoy:['Para hoy: un gesto pequeño alineado con lo que querés vale más que una gran intención.','Hoy, cuidá tu energía: elegí bien a quién le das tu tiempo y tu atención.','Dejá un espacio libre en tu día: lo inesperado también trae regalos.'],
+      general:['Quedate con la imagen de esta carta durante el día: vas a ver cómo aparece en lo que vivís.','La respuesta está más cerca de lo que creés: la carta solo te ayuda a ponerle nombre.','Tomalo como una invitación, no como una sentencia: vos decidís qué hacer con esta energía.']
+    };
+
+    /* ---------- metodologías de cada guía ---------- */
+    var MET = {
+      kael:{m:'el Método del Fuego', pos:['Lo que te frena','La acción de hoy'], ab:['Vamos directo al grano.','Te lo digo sin vueltas.','Escuchame bien, que esto es para vos.'], cie:['¿Qué paso concreto vas a dar hoy mismo?','¿Te animás a hacerlo antes de que termine el día?','Contame cuando lo hagas: quiero celebrarlo con vos.']},
+      mirra:{m:'la tirada de Siembra y Cosecha', pos:['La semilla','Lo que necesita cuidado','La cosecha posible'], ab:['Despacito, que acá nadie te apura.','Respirá conmigo un momento.','Con calma, como quien prepara un té.'], cie:['¿Qué vas a regar esta semana?','¿Qué pequeño gesto concreto te acerca a esa cosecha?','Prepará un té y quedate un rato con esto.']},
+      nilo:{m:'la Pregunta Rápida', pos:['La respuesta del viento'], ab:['¡Buenísima pregunta!','¡Ahí va, mirá lo que salió!','¡Me encanta esta!'], cie:['¿Querés que tiremos otra para ver el otro lado?','¿Te cierra o le damos otra vuelta?','¡Preguntame lo que quieras, que estoy acá!']},
+      selene:{m:'las Tres Lunas', pos:['La raíz','Lo que sentís','El abrazo que necesitás'], ab:['Ay, tesoro, vení que te cuento.','Sentate un ratito conmigo.','Mi vida, la Luna me mostró algo.'], cie:['¿Cómo está tu corazón después de leer esto?','Acordate de comer rico y dormir bien esta noche.','Acá estoy, cuando quieras seguir charlando.']},
+      ravi:{m:'el Sol Interior', pos:['Tu sombra de hoy','Tu luz','Cómo brillar'], ab:['Respiremos juntos un momento.','Qué lindo que me preguntes esto.','Cerrá los ojos un segundo y sentí tu sol.'], cie:['¿Dónde vas a dejar que se vea tu luz esta semana?','¿Qué te dirías si te miraras con el mismo amor con el que mirás a quienes querés?','Celebrá algo tuyo hoy, aunque sea pequeño.']},
+      hana:{m:'el Plan en Tres Pasos', pos:['Paso 1 · Ordenar','Paso 2 · Cuidar','Paso 3 · Actuar'], ab:['Vamos por partes.','Te propongo un orden.','Bien, organicemos esto.'], cie:['¿Cuál de los tres pasos empezás hoy?','Anotalo en tu agenda con hora: lo que se agenda, se hace.','¿Querés que armemos una rutina para sostenerlo?']},
+      dara:{m:'los Dos Lados del Lazo', pos:['Tu lado','El otro lado','El lazo entre ustedes'], ab:['Mirémoslo con dulzura y con verdad.','Pongamos las dos copas en la balanza.','Con todo cariño, te cuento.'], cie:['¿Qué necesitás vos para sentirte en equilibrio en este lazo?','¿Qué conversación pendiente podría cambiar todo?','¿Querés mirar ahora tu compatibilidad con su signo?']},
+      noctis:{m:'el Descenso', pos:['Lo que no estás mirando','La raíz','La transformación'], ab:['Bajemos juntos.','No te asustes de lo que aparece.','Acá no hay nada que esconder.'], cie:['¿Qué estás listo o lista para soltar de verdad?','¿Qué parte tuya pide ser mirada sin juicio?','Escribilo esta noche, a la luz de una vela.']},
+      tenzin:{m:'el Sendero', pos:['Dónde estás','La enseñanza','El próximo paso'], ab:['Escuchá lo que dice el sendero.','Te cuento algo que aprendí caminando.','Compañero o compañera de camino, mirá esto.'], cie:['¿Cuál es el próximo paso, aunque sea pequeño?','Caminá un rato hoy, sin destino, y mirá qué aparece.','El camino se hace al andar: ¿hacia dónde querés ir?']},
+      bruna:{m:'la Montaña', pos:['La base','La escalada','La cima'], ab:['Vamos a trazarlo.','Sin rodeos.','Esto es lo que veo en tu mapa.'], cie:['¿Cuál es tu meta concreta para los próximos 30 días?','Escribí una fecha, un objetivo y la primera acción.','¿Qué vas a dejar de hacer para llegar más lejos?']},
+      zephyr:{m:'el Mapa Estelar', pos:['El tránsito de hoy'], ab:['¡Tu cielo está interesante!','Te leo el mapa.','Las estrellas tienen algo para decirte.'], cie:['¿Querés que miremos tu compatibilidad con otro signo?','Si tenés la hora y la ciudad de nacimiento, en la app podés ver tu carta natal completa.','¿Qué idea nueva te está rondando?']},
+      marina:{m:'la Ola de la Intuición', pos:['Lo que sentís','Lo que el agua te muestra'], ab:['Cerrá los ojos un segundo.','Escuchá las olas.','Alma de agua, sentí esto.'], cie:['¿Qué sentiste en el cuerpo al leer esto?','Esta noche, antes de dormir, pedile a tus sueños una respuesta.','¿Querés contarme algún sueño que hayas tenido?']}
+    };
+
+    function sacar(n){ var L = (window.TBE_CARDS || []).filter(function(c){ return c && c.title; }), out = [];
+      while(L.length && out.length < n){ var i = Math.floor(Math.random() * L.length), c = L.splice(i, 1)[0]; out.push({c:c, inv:Math.random() < .22}); } return out; }
+    function artDe(cs){ return '<span class="gu-cartas">' + cs.map(function(x){ return '<span class="gu-carta' + (x.inv ? ' inv' : '') + '">' + (x.c.art || '') + '</span>'; }).join('') + '</span>'; }
+    function lecturaCarta(x){ return frases(x.inv && x.c.reversed ? x.c.reversed : x.c.meaning, 2); }
+    function ctaTxt(g){ return pick(['Si querés ir más profundo, con fechas, más cartas y tu historia completa, Emma te hace una lectura personalizada.', 'Esto es una mirada rápida. Para una lectura completa y personal, podés consultar directamente con Emma.', 'Para algo tan importante, te recomiendo una lectura personalizada con Emma: va mucho más profundo que este chat.']); }
+
+    function lectura(g, h, tema, txt){ var me = MET[g.id], p = h.perfil || {}, pila = (p.nombre || '').split(' ')[0];
+      var cs = sacar(me.pos.length), partes = [];
+      partes.push(pick(me.ab) + ' ' + pila + ', para ' + (TEMA[tema] || 'tu pregunta') + ' usé ' + me.m + '. Esto es lo que salió:');
+      cs.forEach(function(x, i){ partes.push('**' + me.pos[i] + ' · ' + cardName(x.c) + (x.inv ? ' (invertida)' : '') + '.** ' + lecturaCarta(x)); });
+      var sg = SIGNO[p.signo]; if(sg && Math.random() < .7) partes.push('Como ' + p.signo + ', tenés ' + sg.t + ': ' + pick(['usalo a tu favor en esto.', 'es tu mejor herramienta ahora.', 'confiá en esa parte tuya.']));
+      partes.push(pick(CONSEJO[tema] || CONSEJO.general));
+      if(g.id === 'zephyr' && p.vida) partes.push('Y tu número de vida, el ' + p.vida + ', es ' + (NUM[p.vida] || 'un número especial') + '.');
+      partes.push(pick(me.cie));
+      h.ultima = {tema:tema, cartas:cs.map(function(x){ return cardName(x.c); })};
+      return {text:partes.join('\n\n'), art:artDe(cs)}; }
+
+    function hoy(g, h){ var p = h.perfil || {}, pila = (p.nombre || '').split(' ')[0], extra = [];
+      try{ var C = window.TBE_CAL, d = new Date(), k = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); if(C && C.d){ var r = C.d.filter(function(x){ return x[0] === k; })[0]; if(r) extra.push('En el calendario mágico, hoy toca: **' + r[1] + '**.'); } }catch(e){}
+      try{ var mo = window.tbeMoHoy && window.tbeMoHoy(); if(mo) extra.push('La lección de los monjes de hoy dice: “' + mo.L.cita + '”'); }catch(e){}
+      var r2 = lectura(g, h, 'hoy'); r2.text = r2.text + (extra.length ? '\n\n' + extra.join('\n\n') : ''); return r2; }
+
+    function sueno(g, h, txt){ var S = window.TBE_SU, ids = S ? S.detect(txt) : [], syms = ids.map(function(i){ return S.byId[i]; }).filter(Boolean).slice(0, 3), me = MET[g.id];
+      if(!syms.length) return lectura(g, h, 'suenos', txt);
+      var t = [pick(me.ab) + ' Qué sueño tan lleno de imágenes. Te cuento lo que veo:'];
+      syms.forEach(function(s){ t.push('**' + s.e + ' ' + s.n + ':** ' + s.m + ' ' + s.q); });
+      t.push('Lo más importante es lo que sentiste al despertar: esa emoción es la llave. En la sección Sueños de la app podés leerlo completo, símbolo por símbolo.');
+      t.push(pick(me.cie)); return {text:t.join('\n\n')}; }
+
+    function astro(g, h, txt){ var p = h.perfil || {}, otro = signoEn(txt), me = MET[g.id], sg = SIGNO[p.signo] || {};
+      var t = [pick(me.ab) + ' Tu Sol está en ' + p.signo + ', signo de ' + (sg.el || '').toLowerCase() + ': ' + (sg.t || '') + '.'];
+      if(otro && otro !== p.signo || (otro && /compat/.test(nrm(txt)))) t.push('Con ' + otro + ' (' + SIGNO[otro].el.toLowerCase() + '): ' + compat(p.signo, otro) + '.');
+      t.push('Tu número de vida es el ' + p.vida + ', ' + (NUM[p.vida] || '') + '.');
+      t.push('En la sección Astrología de la app podés calcular tu Luna y tu Ascendente con la hora y el lugar de nacimiento, y ver la energía del cielo de hoy.');
+      t.push(pick(me.cie)); return {text:t.join('\n\n')}; }
+
+    function cartaElegida(g, h, txt){ var m = txt.match(/Saqué la carta (.+?)( \(invertida\))?\./), L = window.TBE_CARDS || [], me = MET[g.id];
+      var c = m && L.filter(function(x){ return cardName(x) === m[1]; })[0]; if(!c) return lectura(g, h, (h.ultima && h.ultima.tema) || 'general');
+      var x = {c:c, inv:!!m[2]}, tema = (h.ultima && h.ultima.tema) || 'general';
+      return {text:pick(me.ab) + ' Salió **' + cardName(c) + (x.inv ? ' invertida' : '') + '**. ' + lecturaCarta(x) + '\n\nPara ' + (TEMA[tema] || 'tu pregunta') + ': ' + pick(CONSEJO[tema] || CONSEJO.general) + '\n\n' + pick(me.cie)}; }
+
+    var CHISTE = ['¿Sabés por qué el tarotista nunca se pierde? Porque siempre tiene una carta bajo la manga… y un Ermitaño con farol 😄', '¿Qué le dijo la Luna al Sol? “Yo también brillo, pero con mejor iluminación ambiental” 🌙', 'Mercurio retrógrado no tiene la culpa de todo… pero de los audios de cinco minutos, un poco sí 😅'];
+
+    function responder(g, h, txt){ var it = intencion(txt), me = MET[g.id], p = h.perfil || {}, pila = (p.nombre || '').split(' ')[0];
+      var dia = hoyKey(); if(!h.tir || h.tir.d !== dia) h.tir = {d:dia, n:0};
+      if(it === 'crisis') return {text:'Gracias por contármelo, ' + pila + '. Lo que estás viviendo es muy importante y no estás en soledad. En este momento lo primero es tu seguridad: buscá a alguien de confianza para que esté con vos y pedí ayuda profesional ya mismo. En Argentina podés llamar gratis al **135** (desde CABA y GBA) o al **(011) 5275-1135** desde todo el país, las 24 horas. Si estás en peligro, llamá al **911**. Yo me quedo acá, pero ahora lo más valioso es que te acompañe una persona.'};
+      if(it === 'ia') return {text:'Soy ' + g.n + ', una de las 12 guías virtuales de la app de Emma. No soy una persona: estoy hecha con su forma de leer, con todo lo que hay en la app (las 78 cartas, los signos, los números, los sueños, los rituales) y con mi propia manera de acompañar, que es ' + me.m + '. Para una lectura humana y personal, Emma te atiende directamente. ' + pick(me.cie), cta:true};
+      if(it === 'consulta') return {text:'¡Qué buena idea! Emma hace lecturas personalizadas, con tu historia completa, más cartas y todo el tiempo que necesites. Tocá el botón y escribile por WhatsApp: te cuenta los precios y los horarios disponibles.', cta:true};
+      if(it === 'ayuda') return {text:'Conmigo podés hablar de lo que quieras: amor, trabajo, plata, familia, decisiones, sueños, tu signo o tu número de vida. Contame tu pregunta y te respondo con ' + me.m + '. También podés tocar 🃏 para sacar una carta en cualquier momento. Mis especialidades son: ' + g.temas.join(', ').toLowerCase() + '.'};
+      if(it === 'hola') return {text:pick(['¡Hola, ' + pila + '! Acá estoy. ', '¡Qué alegría leerte, ' + pila + '! ', 'Hola, hola. ']) + pick(['¿Qué te trae hoy?', '¿Sobre qué querés que miremos?', '¿Qué pregunta tenés para mí?'])};
+      if(it === 'gracias') return {text:pick(['¡Gracias a vos por confiar! ', 'Me alegra mucho, ' + pila + '. ', 'Para eso estoy. ']) + pick(me.cie)};
+      if(it === 'chau') return {text:'Que tengas un hermoso día, ' + pila + '. Acá voy a estar cuando me necesites ✨'};
+      if(it === 'chiste') return {text:pick(CHISTE) + '\n\nBueno, volviendo a lo nuestro: ¿qué querés preguntarme?'};
+      if(it === 'cuando') return {text:'Entiendo las ganas de saber el “cuándo”, ' + pila + '. En este chat no doy fechas ni certezas sobre lo que hará otra persona: eso necesita una lectura completa, con tu historia y varias tiradas. Lo que sí puedo hacer es mirar la energía de este momento. ¿Querés que tiremos para ver qué depende de vos?\n\n' + ctaTxt(g), cta:true};
+      if(it === 'carta') return cartaElegida(g, h, txt);
+      if(it === 'suenos') return sueno(g, h, txt);
+      if(it === 'astro' || it === 'numero') return astro(g, h, txt);
+      // tiradas: hasta 3 por día por guía; después, charla y consulta con Emma
+      if(h.tir.n >= 3) return {text:'Ya hicimos tres tiradas hoy, ' + pila + ', y las cartas necesitan descanso para no repetirse. Te propongo quedarte con lo que salió y volver mañana.\n\n' + ctaTxt(g), cta:true};
+      h.tir.n++;
+      var r = it === 'hoy' ? hoy(g, h) : lectura(g, h, it === 'general' ? 'general' : it, txt);
+      if(h.tir.n === 3 || (it === 'amor' || it === 'decision') && Math.random() < .35){ r.text += '\n\n' + ctaTxt(g); r.cta = true; }
+      return r; }
+    return {responder:responder};
+  })();
 
   /* ---------- pantallas ---------- */
   var st = {scr:'lista', id:null, busy:false, left:null};
   function card(g){ return '<button type="button" class="gu-card" data-gu-open="' + g.id + '" style="--c1:' + g.c1 + ';--c2:' + g.c2 + '"><span class="gu-img"><img src="' + g.img + '" alt="' + esc(g.n) + '" loading="lazy"><em>' + g.g + '&#xFE0E; ' + esc(g.s) + '</em></span><b>' + esc(g.n) + '</b><small>' + esc(g.t) + '</small><span class="gu-tags">' + g.temas.slice(0, 2).map(function(t){ return '<i>' + esc(t) + '</i>'; }).join('') + '</span></button>'; }
-  function lista(){ var p = pase(); var h = '<div class="gu-hero"><p>Si preferís no hacer tu lectura por WhatsApp, hablá en tiempo real con una de mis 12 guías: cada una tiene su personalidad, su especialidad y su signo. Preguntales lo que quieras, de lo más profundo a lo más simple.</p>'
+  function lista(){ var p = pase(); var h = '<div class="gu-hero"><p>Si preferís no hacer tu lectura por WhatsApp, hablá al instante con una de mis 12 guías: cada una tiene su personalidad, su especialidad y su signo. Preguntales lo que quieras, de lo más profundo a lo más simple.</p>'
       + (p && p.active ? '<div class="gu-ok">✦ Tu Pase de Guías está activo hasta el <b>' + nToDate(p.exp) + '</b> · ' + LIMITE + ' mensajes por día</div>' : '<button type="button" class="gu-btn" data-gu-go="pase">✦ Pase de Guías · ' + PRICE + ' · las 12 guías por ' + DIAS + ' días</button>') + '</div>';
-    return h + '<div class="gu-grid">' + GUIAS.map(card).join('') + '</div><p class="gu-note">Las guías son asistentes virtuales con inteligencia artificial entrenadas con mi forma de leer. Acompañan con tarot, astrología y coaching, pero no reemplazan a un profesional de la salud. Servicio para mayores de 18 años.</p>'; }
+    return h + '<div class="gu-grid">' + GUIAS.map(card).join('') + '</div><p class="gu-note">Las guías son asistentes virtuales creadas con mi forma de leer y con todo el contenido de la app: no son personas. Acompañan con tarot, astrología y coaching, pero no reemplazan a un profesional de la salud. Servicio para mayores de 18 años.</p>'; }
   function cp(btn, txt){ var o = btn.textContent; function ok(){ btn.textContent = '✓ Copiado'; setTimeout(function(){ btn.textContent = o; }, 1600); } try{ navigator.clipboard.writeText(txt).then(ok, function(){ window.prompt('Copiá:', txt); }); }catch(e){ window.prompt('Copiá:', txt); } }
   function paseHTML(){ var g = st.id && BYID[st.id];
     return '<button type="button" class="gu-back" data-gu-go="lista">‹ Guías de tarot</button><div class="gu-pase">' + (g ? '<img class="gu-pase-img" src="' + g.img + '" alt=""><p class="gu-k">Para hablar con ' + esc(g.n) + '</p>' : '') + '<h3>Pase de Guías</h3><p class="gu-price">' + PRICE + '<small> · un solo pago · ' + DIAS + ' días</small></p>'
-      + '<ul class="gu-inc"><li>Las 12 guías, con la que quieras, cuando quieras</li><li>Chat en tiempo real: hasta ' + LIMITE + ' mensajes por día</li><li>Tarot, astrología, numerología, sueños y coaching holístico</li><li>Cartas del mazo de la app dentro de la charla</li><li>Tu historial guardado en tu celular</li></ul>'
+      + '<ul class="gu-inc"><li>Las 12 guías, con la que quieras, cuando quieras</li><li>Respuestas al instante: hasta ' + LIMITE + ' mensajes por día</li><li>Tarot, astrología, numerología, sueños y coaching holístico</li><li>Cartas del mazo de la app dentro de la charla</li><li>Tu historial guardado en tu celular</li></ul>'
       + '<ol class="gu-steps"><li><b>Copiá el monto.</b> En el link de pago lo escribís vos: <button type="button" class="gu-copy" data-gu-copy="' + AMOUNT + '">' + PRICE + ' · Copiar</button></li>'
       + '<li><b>Pagá con Mercado Pago.</b> <a class="gu-mp" href="' + MP + '" target="_blank" rel="noopener">Pagar con Mercado Pago</a><small>¿Preferís transferir? Alias <b>' + ALIAS + '</b>, a nombre de Emmanuel García.</small></li>'
       + '<li><b>Mandame el comprobante.</b> <a class="gu-wa" href="https://wa.me/' + WA + '?text=' + encodeURIComponent('Hola Emma! Pagué ' + PRICE + ' por el Pase de Guías. Te adjunto el comprobante para recibir mi código ✨') + '" target="_blank" rel="noopener">Enviar por WhatsApp</a></li>'
@@ -23607,7 +23750,7 @@ function reqText(a){var r=a.req;if(r.t==='start')return 'Ya es tuya';if(r.t==='l
   function fmt(t){ return esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>'); }
   function chat(){ var g = BYID[st.id], h = H(g.id), pg = perfilGlobal();
     if(!h.msgs.length){ h.msgs.push({role:'assistant', content:g.saludo}); saveH(g.id, h); }
-    var msgs = h.msgs.map(function(m){ return '<div class="gu-m ' + (m.role === 'user' ? 'me' : 'ella') + '">' + (m.role === 'user' ? '' : '<img src="' + g.img + '" alt="">') + '<div class="gu-b">' + (m.art ? '<span class="gu-art">' + m.art + '</span>' : '') + fmt(m.content) + '</div></div>'; }).join('');
+    var msgs = h.msgs.map(function(m){ return '<div class="gu-m ' + (m.role === 'user' ? 'me' : 'ella') + '">' + (m.role === 'user' ? '' : '<img src="' + g.img + '" alt="">') + '<div class="gu-b">' + (m.art ? '<span class="gu-art">' + m.art + '</span>' : '') + fmt(m.content) + (m.cta ? '<a class="gu-cta" href="https://wa.me/' + WA + '?text=' + encodeURIComponent('Hola Emma! Vengo de hablar con ' + g.n + ' en la app y quiero una lectura personalizada ✨') + '" target="_blank" rel="noopener">💬 Quiero mi lectura con Emma</a>' : '') + '</div></div>'; }).join('');
     return '<div class="gu-chat" style="--c1:' + g.c1 + ';--c2:' + g.c2 + '"><div class="gu-ch"><button type="button" class="gu-back" data-gu-go="lista">‹</button><img src="' + g.img + '" alt=""><div><b>' + esc(g.n) + '</b><small>' + esc(g.t) + ' · ' + g.g + '&#xFE0E; ' + esc(g.s) + '</small></div><button type="button" class="gu-hola" data-gu-do="hola" aria-label="Escuchar su saludo">🔊</button></div>'
       + '<div class="gu-msgs" id="guMsgs">' + msgs + (st.busy ? '<div class="gu-m ella"><img src="' + g.img + '" alt=""><div class="gu-b gu-typing"><i></i><i></i><i></i></div></div>' : '') + '</div>'
       + (!h.perfil && pg ? '<div class="gu-quick"><button type="button" class="gu-chip" data-gu-do="misdatos">Usar mis datos: ' + esc(pg.nombre) + ' · ' + esc(pg.fecha) + '</button></div>' : '')
@@ -23635,14 +23778,12 @@ function reqText(a){var r=a.req;if(r.t==='start')return 'Ya es tuya';if(r.t==='l
     h.msgs.push({role:'user', content:txt, art:art}); saveH(g.id, h);
     if(!h.perfil){ render(); onboarding(g, h, txt); return; }
     st.busy = true; render();
-    pedir(g, h).then(function(d){ st.busy = false; var h2 = H(g.id);
-      if(d.off){ h2.msgs.push({role:'assistant', content:'El chat en tiempo real todavía se está activando. En cuanto Emma lo deje listo, te respondo al instante ✨'}); }
-      else if(d.error === 'limite'){ st.left = 0; h2.msgs.push({role:'assistant', content:d.msg}); }
-      else if(d.error === 'codigo' || d.error === 'vencido'){ h2.msgs.push({role:'assistant', content:d.msg}); }
-      else if(d.text){ h2.msgs.push({role:'assistant', content:d.text}); if(typeof d.left === 'number') st.left = d.left; }
-      else h2.msgs.push({role:'assistant', content:'Se me cortó la conexión un momento. ¿Me lo repetís?'});
-      saveH(g.id, h2); render(); })
-      .catch(function(){ st.busy = false; var h2 = H(g.id); h2.msgs.push({role:'assistant', content:'Se me cortó la conexión un momento. ¿Me lo repetís?'}); saveH(g.id, h2); render(); }); }
+    var dia = new Date().toDateString(), U = jget('tbe_guias_uso', {d:'', n:0}); if(U.d !== dia) U = {d:dia, n:0};
+    setTimeout(function(){ st.busy = false; var h2 = H(g.id), r;
+      if(U.n >= LIMITE){ r = {text:'Llegaste a los ' + LIMITE + ' mensajes de hoy con las guías. Mañana seguimos ✨ Si necesitás una respuesta ya, Emma te puede hacer una lectura personalizada.', cta:true}; }
+      else { try{ r = M.responder(g, h2, txt); }catch(err){ r = {text:'Se me mezclaron las cartas un momento. ¿Me lo repetís con otras palabras?'}; } U.n++; jset('tbe_guias_uso', U); }
+      st.left = Math.max(0, LIMITE - U.n);
+      h2.msgs.push({role:'assistant', content:r.text, art:r.art, cta:!!r.cta}); saveH(g.id, h2); render(); }, 700 + Math.random() * 900); }
   function carta(){ var L = (window.TBE_CARDS || []).filter(function(c){ return c && c.title; }); if(!L.length) return; var c = L[Math.floor(Math.random() * L.length)], inv = Math.random() < .3;
     var nombre = String(c.title).replace(/^[0-9ivxl]+\.\s*/i, ''); enviar('Saqué la carta ' + nombre + (inv ? ' (invertida)' : '') + '. ¿Qué me dice para lo que te pregunté?', '<span class="gu-carta' + (inv ? ' inv' : '') + '">' + (c.art || '') + '</span><b>' + esc(nombre) + (inv ? ' · invertida' : '') + '</b>'); }
 
